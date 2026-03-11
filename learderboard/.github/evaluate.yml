@@ -1,0 +1,74 @@
+name: Evaluate Submission
+
+on:
+  pull_request:
+    paths:
+      - 'submissions/**.csv'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Get submission file
+        id: get_file
+        run: |
+          FILES=$(git diff --name-only origin/main HEAD | grep '^submissions/.*\.csv$' | head -1)
+          echo "file=$FILES" >> $GITHUB_OUTPUT
+          TEAM=$(basename "$FILES" .csv)
+          echo "team=$TEAM" >> $GITHUB_OUTPUT
+          echo "Submission: $FILES — Team: $TEAM"
+
+      - name: Evaluate submission
+        env:
+          TRUE_LABELS: ${{ secrets.TRUE_LABELS_B64 }}
+        run: |
+          # Restore true labels from GitHub Secret
+          echo "$TRUE_LABELS" | base64 -d > data/test_labels_TRUE.csv
+
+          python leaderboard/update_leaderboard.py \
+            --submission "${{ steps.get_file.outputs.file }}" \
+            --team       "${{ steps.get_file.outputs.team }}" \
+            --true_labels data/test_labels_TRUE.csv
+
+      - name: Commit updated leaderboard
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add leaderboard/leaderboard.csv leaderboard/score.json
+          git diff --staged --quiet || git commit -m "Update leaderboard for ${{ steps.get_file.outputs.team }}"
+          git push origin main
+
+      - name: Post score as PR comment
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs   = require('fs');
+            const score = JSON.parse(fs.readFileSync('leaderboard/score.json', 'utf8'));
+            const body  = `## 🏆 DermAI Challenge — Evaluation Result\n\n` +
+              `**Team**: ${score.team}\n\n` +
+              `| Metric | Score |\n|---|:---:|\n` +
+              `| ⭐ F1-Score (Macro) | **${score.f1_score.toFixed(4)}** |\n` +
+              `| Accuracy | ${score.accuracy.toFixed(4)} |\n` +
+              `| Precision (Macro) | ${score.precision.toFixed(4)} |\n` +
+              `| Recall (Macro) | ${score.recall.toFixed(4)} |\n`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              body:  body
+            });
