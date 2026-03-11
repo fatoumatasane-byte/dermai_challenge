@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DermAI Challenge — Leaderboard</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div class="logo">🩺</div>
+      <div>
+        <h1>DermAI Challenge</h1>
+        <p class="subtitle">Skin Lesion Classification — Leaderboard</p>
+      </div>
+    </div>
+  </header>
+
+  <main>
+
+    <!-- Stats bar -->
+    <section class="stats-bar" id="stats-bar">
+      <div class="stat-card">
+        <span class="stat-value" id="stat-teams">—</span>
+        <span class="stat-label">Teams</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-best">—</span>
+        <span class="stat-label">Best F1-Score</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-leader">—</span>
+        <span class="stat-label">Leader</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value" id="stat-updated">—</span>
+        <span class="stat-label">Last Updated</span>
+      </div>
+    </section>
+
+    <!-- Metric info -->
+    <section class="metric-info">
+      <div class="metric-badge main">⭐ Main metric: F1-Score (Macro)</div>
+      <div class="metric-badge">Accuracy</div>
+      <div class="metric-badge">Precision (Macro)</div>
+      <div class="metric-badge">Recall (Macro)</div>
+    </section>
+
+    <!-- Leaderboard table -->
+    <section class="table-section">
+      <table id="leaderboard-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Team</th>
+            <th class="main-col">F1-Score ↓</th>
+            <th>Accuracy</th>
+            <th>Precision</th>
+            <th>Recall</th>
+            <th>Submitted</th>
+          </tr>
+        </thead>
+        <tbody id="leaderboard-body">
+          <tr>
+            <td colspan="7" class="loading">Loading leaderboard...</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <!-- Submission info -->
+    <section class="submission-info">
+      <h2>📤 How to Submit</h2>
+      <p>Create a CSV file with the following format and open a Pull Request:</p>
+      <pre>image_id,label
+img_001.jpg,0
+img_002.jpg,1
+...</pre>
+      <ul>
+        <li><strong>label</strong> must be <code>0</code> (benign) or <code>1</code> (malignant)</li>
+        <li>Must contain exactly <strong>660 predictions</strong></li>
+        <li>File must be placed in <code>submissions/TEAM_NAME.csv</code></li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>DermAI Challenge · Deep Learning Course · Dataset: <a href="https://www.kaggle.com/datasets/fanconic/skin-cancer-malignant-vs-benign" target="_blank">Kaggle ISIC Archive</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
