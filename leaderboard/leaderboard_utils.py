@@ -2,81 +2,69 @@
 leaderboard_utils.py
 ====================
 Utility functions for evaluating submissions and updating the leaderboard.
-Used by update_leaderboard.py and the GitHub Actions workflow.
-
-Metrics:
-  - F1-Score (Macro)  ← main ranking metric
-  - Accuracy
-  - Precision (Macro)
-  - Recall (Macro)
+Supports both comma (,) and semicolon (;) separators automatically.
 """
 
 import csv
 import os
 from datetime import datetime
 
-# ── Paths ─────────────────────────────────────────────────────────────────────
 BASE_DIR         = os.path.dirname(os.path.abspath(__file__))
 LEADERBOARD_CSV  = os.path.join(BASE_DIR, "leaderboard.csv")
 TRUE_LABELS_PATH = os.path.join(BASE_DIR, "..", "data", "test_labels_TRUE.csv")
 
 
-# ── Evaluation ────────────────────────────────────────────────────────────────
+def detect_delimiter(path):
+    """Auto-detect delimiter: comma or semicolon."""
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        first_line = f.readline()
+    return ";" if ";" in first_line else ","
+
 
 def load_true_labels(path=TRUE_LABELS_PATH):
-    """Load the hidden true labels from test_labels_TRUE.csv."""
+    """Load the hidden true labels — supports , and ; separators."""
+    delimiter = detect_delimiter(path)
     labels = {}
-    with open(path, newline="") as f:
-        reader = csv.DictReader(f)
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f, delimiter=delimiter)
         for row in reader:
+            row = {k.strip(): v.strip() for k, v in row.items()}
             labels[row["image_id"]] = int(row["label"])
     return labels
 
 
 def load_submission(path):
-    """
-    Load a submission CSV file.
-    Expected format:
-        image_id,label
-        img_001.jpg,0
-        img_002.jpg,1
-        ...
-    """
+    """Load a submission CSV — supports , and ; separators."""
+    delimiter = detect_delimiter(path)
     preds = {}
-    with open(path, newline="") as f:
-        reader = csv.DictReader(f)
-        if "image_id" not in reader.fieldnames or "label" not in reader.fieldnames:
+    with open(path, newline="", encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f, delimiter=delimiter)
+        fields = [f.strip() for f in reader.fieldnames]
+        if "image_id" not in fields or "label" not in fields:
             raise ValueError("Submission must have columns: image_id, label")
         for row in reader:
+            row = {k.strip(): v.strip() for k, v in row.items()}
             preds[row["image_id"]] = int(row["label"])
     return preds
 
 
 def compute_metrics(y_true, y_pred):
-    """
-    Compute F1 (macro), Accuracy, Precision (macro), Recall (macro).
-    Pure Python — no sklearn required.
-    """
+    """Compute F1 (macro), Accuracy, Precision (macro), Recall (macro)."""
     classes = sorted(set(y_true))
-    n       = len(y_true)
-
+    n = len(y_true)
     if n == 0:
         return {"f1_score": 0.0, "accuracy": 0.0, "precision": 0.0, "recall": 0.0}
 
-    # Accuracy
     accuracy = sum(1 for t, p in zip(y_true, y_pred) if t == p) / n
-
-    # Per-class metrics
     precisions, recalls, f1s = [], [], []
+
     for cls in classes:
         tp = sum(1 for t, p in zip(y_true, y_pred) if t == cls and p == cls)
         fp = sum(1 for t, p in zip(y_true, y_pred) if t != cls and p == cls)
         fn = sum(1 for t, p in zip(y_true, y_pred) if t == cls and p != cls)
-
         prec = tp / (tp + fp) if (tp + fp) > 0 else 0.0
         rec  = tp / (tp + fn) if (tp + fn) > 0 else 0.0
         f1   = 2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0
-
         precisions.append(prec)
         recalls.append(rec)
         f1s.append(f1)
@@ -90,14 +78,10 @@ def compute_metrics(y_true, y_pred):
 
 
 def evaluate_submission(submission_path, true_labels_path=TRUE_LABELS_PATH):
-    """
-    Evaluate a submission against the true labels.
-    Returns a dict with all metrics, or raises an error with a message.
-    """
+    """Evaluate a submission against the true labels."""
     true  = load_true_labels(true_labels_path)
     preds = load_submission(submission_path)
 
-    # Validate
     missing = set(true.keys()) - set(preds.keys())
     extra   = set(preds.keys()) - set(true.keys())
 
@@ -106,19 +90,15 @@ def evaluate_submission(submission_path, true_labels_path=TRUE_LABELS_PATH):
     if extra:
         raise ValueError(f"Unknown image IDs in submission: {list(extra)[:3]}")
 
-    # Check labels are 0 or 1
     invalid = [k for k, v in preds.items() if v not in (0, 1)]
     if invalid:
         raise ValueError(f"Invalid label values (must be 0 or 1): {invalid[:3]}")
 
-    # Build aligned lists
     y_true = [true[k]  for k in sorted(true.keys())]
     y_pred = [preds[k] for k in sorted(true.keys())]
 
     return compute_metrics(y_true, y_pred)
 
-
-# ── Leaderboard ───────────────────────────────────────────────────────────────
 
 def load_leaderboard(path=LEADERBOARD_CSV):
     """Load existing leaderboard entries."""
@@ -128,6 +108,8 @@ def load_leaderboard(path=LEADERBOARD_CSV):
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
+            if not row.get("team"):
+                continue
             entries.append({
                 "team":         row["team"],
                 "f1_score":     float(row["f1_score"]),
@@ -152,10 +134,7 @@ def save_leaderboard(entries, path=LEADERBOARD_CSV):
 
 
 def update_leaderboard(team_name, metrics, path=LEADERBOARD_CSV):
-    """
-    Add or update a team's score on the leaderboard.
-    If the team already exists, keeps only their best score.
-    """
+    """Add or update a team's score — keeps only best score per team."""
     entries = load_leaderboard(path)
     now     = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
 
@@ -168,7 +147,6 @@ def update_leaderboard(team_name, metrics, path=LEADERBOARD_CSV):
         "submitted_at": now,
     }
 
-    # Check if team already exists — keep best score
     existing = [e for e in entries if e["team"] == team_name]
     if existing:
         best = max(existing, key=lambda x: x["f1_score"])
@@ -188,12 +166,13 @@ def update_leaderboard(team_name, metrics, path=LEADERBOARD_CSV):
 def print_leaderboard(entries):
     """Print leaderboard to console."""
     print("\n" + "="*65)
-    print("  🏆  DermAI Challenge — Leaderboard")
+    print("  DermAI Challenge — Leaderboard")
     print("="*65)
     print(f"  {'#':>2}  {'Team':<25} {'F1':>7} {'Acc':>7} {'Prec':>7} {'Rec':>7}")
     print("  " + "─"*60)
+    medals = ["1.", "2.", "3."]
     for i, e in enumerate(entries, 1):
-        medal = "🥇" if i == 1 else "🥈" if i == 2 else "🥉" if i == 3 else f"{i:>2}."
+        medal = ["🥇","🥈","🥉"][i-1] if i <= 3 else f"{i:>2}."
         print(f"  {medal}  {e['team']:<25} {e['f1_score']:>7.4f} {e['accuracy']:>7.4f} "
               f"{e['precision']:>7.4f} {e['recall']:>7.4f}")
     print("="*65 + "\n")
