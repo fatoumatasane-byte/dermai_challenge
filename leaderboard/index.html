@@ -1,96 +1,112 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DermAI Challenge — Leaderboard</title>
-  <link rel="stylesheet" href="styles.css" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0d1117; color: #e6edf3; font-family: 'Segoe UI', sans-serif; padding: 40px 20px; }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 2rem; margin-bottom: 8px; color: #58a6ff; }
+    .subtitle { text-align: center; color: #8b949e; margin-bottom: 40px; font-size: 0.95rem; }
+    .badge { display: inline-block; background: #21262d; border: 1px solid #30363d; border-radius: 20px; padding: 4px 14px; font-size: 0.8rem; margin: 4px; color: #8b949e; }
+    table { width: 100%; border-collapse: collapse; background: #161b22; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+    thead { background: #21262d; }
+    th { padding: 16px 20px; text-align: left; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; color: #8b949e; }
+    th.right, td.right { text-align: right; }
+    td { padding: 16px 20px; border-top: 1px solid #21262d; font-size: 0.95rem; }
+    tr:hover td { background: #1c2128; }
+    .rank { font-weight: bold; color: #8b949e; width: 40px; }
+    .team-name { font-weight: 600; color: #e6edf3; }
+    .f1 { font-weight: 700; color: #3fb950; font-size: 1.05rem; }
+    .medal { font-size: 1.2rem; }
+    .main-metric { color: #58a6ff; font-size: 0.7rem; display: block; }
+    .refresh { text-align: center; margin-top: 20px; color: #8b949e; font-size: 0.85rem; }
+    .empty { text-align: center; padding: 60px; color: #8b949e; }
+    .loading { text-align: center; padding: 60px; color: #58a6ff; }
+  </style>
 </head>
 <body>
+  <div class="container">
+    <h1>🏥 DermAI Challenge</h1>
+    <p class="subtitle">Skin Lesion Classification — Leaderboard</p>
 
-  <header>
-    <div class="header-inner">
-      <div class="logo">🩺</div>
-      <div>
-        <h1>DermAI Challenge</h1>
-        <p class="subtitle">Skin Lesion Classification — Leaderboard</p>
-      </div>
+    <div style="text-align:center; margin-bottom: 30px;">
+      <span class="badge">📊 Main Metric: F1-Score (Macro)</span>
+      <span class="badge">🩺 Binary Classification</span>
+      <span class="badge">📁 660 Test Images</span>
     </div>
-  </header>
 
-  <main>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Team</th>
+          <th class="right">F1-Score <span class="main-metric">main metric</span></th>
+          <th class="right">Accuracy</th>
+          <th class="right">Precision</th>
+          <th class="right">Recall</th>
+          <th class="right">Submitted</th>
+        </tr>
+      </thead>
+      <tbody id="leaderboard-body">
+        <tr><td colspan="7" class="loading">Loading...</td></tr>
+      </tbody>
+    </table>
 
-    <!-- Stats bar -->
-    <section class="stats-bar" id="stats-bar">
-      <div class="stat-card">
-        <span class="stat-value" id="stat-teams">—</span>
-        <span class="stat-label">Teams</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value" id="stat-best">—</span>
-        <span class="stat-label">Best F1-Score</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value" id="stat-leader">—</span>
-        <span class="stat-label">Leader</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-value" id="stat-updated">—</span>
-        <span class="stat-label">Last Updated</span>
-      </div>
-    </section>
+    <p class="refresh">🔄 Auto-refresh every 60 seconds</p>
+  </div>
 
-    <!-- Metric info -->
-    <section class="metric-info">
-      <div class="metric-badge main">⭐ Main metric: F1-Score (Macro)</div>
-      <div class="metric-badge">Accuracy</div>
-      <div class="metric-badge">Precision (Macro)</div>
-      <div class="metric-badge">Recall (Macro)</div>
-    </section>
+  <script>
+    const MEDALS = ['🥇', '🥈', '🥉'];
 
-    <!-- Leaderboard table -->
-    <section class="table-section">
-      <table id="leaderboard-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Team</th>
-            <th class="main-col">F1-Score ↓</th>
-            <th>Accuracy</th>
-            <th>Precision</th>
-            <th>Recall</th>
-            <th>Submitted</th>
-          </tr>
-        </thead>
-        <tbody id="leaderboard-body">
-          <tr>
-            <td colspan="7" class="loading">Loading leaderboard...</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+    function parseCSV(text) {
+      const lines = text.trim().split('\n');
+      const headers = lines[0].split(',').map(h => h.trim());
+      return lines.slice(1).map(line => {
+        const vals = line.split(',').map(v => v.trim());
+        const obj = {};
+        headers.forEach((h, i) => obj[h] = vals[i]);
+        return obj;
+      });
+    }
 
-    <!-- Submission info -->
-    <section class="submission-info">
-      <h2>📤 How to Submit</h2>
-      <p>Create a CSV file with the following format and open a Pull Request:</p>
-      <pre>image_id,label
-img_001.jpg,0
-img_002.jpg,1
-...</pre>
-      <ul>
-        <li><strong>label</strong> must be <code>0</code> (benign) or <code>1</code> (malignant)</li>
-        <li>Must contain exactly <strong>660 predictions</strong></li>
-        <li>File must be placed in <code>submissions/TEAM_NAME.csv</code></li>
-      </ul>
-    </section>
+    function render(entries) {
+      const tbody = document.getElementById('leaderboard-body');
+      if (!entries.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No submissions yet 🎯</td></tr>';
+        return;
+      }
+      tbody.innerHTML = entries.map((e, i) => `
+        <tr>
+          <td class="rank">${MEDALS[i] || (i+1)}</td>
+          <td class="team-name">${e.team}</td>
+          <td class="right f1">${parseFloat(e.f1_score).toFixed(4)}</td>
+          <td class="right">${parseFloat(e.accuracy).toFixed(4)}</td>
+          <td class="right">${parseFloat(e.precision).toFixed(4)}</td>
+          <td class="right">${parseFloat(e.recall).toFixed(4)}</td>
+          <td class="right" style="color:#8b949e;font-size:0.85rem">${e.submitted_at || '-'}</td>
+        </tr>
+      `).join('');
+    }
 
-  </main>
+    async function load() {
+      try {
+        const res = await fetch('leaderboard.csv?t=' + Date.now());
+        if (!res.ok) throw new Error('Not found');
+        const text = await res.text();
+        const entries = parseCSV(text);
+        entries.sort((a, b) => parseFloat(b.f1_score) - parseFloat(a.f1_score));
+        render(entries);
+      } catch (e) {
+        document.getElementById('leaderboard-body').innerHTML =
+          '<tr><td colspan="7" class="empty">No submissions yet 🎯</td></tr>';
+      }
+    }
 
-  <footer>
-    <p>DermAI Challenge · Deep Learning Course · Dataset: <a href="https://www.kaggle.com/datasets/fanconic/skin-cancer-malignant-vs-benign" target="_blank">Kaggle ISIC Archive</a></p>
-  </footer>
-
-  <script src="app.js"></script>
+    load();
+    setInterval(load, 60000);
+  </script>
 </body>
 </html>
